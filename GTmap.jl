@@ -2,6 +2,13 @@ using Shapefile
 using DataFrames
 using Plots
 
+#this function is still in progress. it works for some network cases, but not all. 
+#note that not all matpower network case files contain geodata. for those buses, this function will not run.
+#even in the case of the buses not being detected properly from the branch data, the generators are still plotted.
+#this function requires a shapefile, to be passed in using the shp_path parameter. a .shp and .shx file must be located in the same directory. 
+#in my test case using a tennessee synthetic grid, this function works perfectly. 
+#adjust the size of the plot to make the scaling sensible for whichever state you are using. 
+
 function GTmap(State::String, case::Dict, shp_path::String, width::Int, height::Int, title::String)
     #----------Plot State Outline------------------
     shp = Shapefile.Table(shp_path)
