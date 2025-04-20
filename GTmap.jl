@@ -98,8 +98,8 @@ end
 # Example Usage (assuming network_case is defined):
 # state_name = "Tennessee"
 # plot_title = "Power Grid in Tennessee"
-# plot_height = 600
-# plot_width = 1000
+# plot_height = 1200
+# plot_width = 500
 
 # power_grid_map = GTmap(state_name, network_case, plot_height, plot_width, plot_title)
 # display(power_grid_map)
