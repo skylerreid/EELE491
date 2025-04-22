@@ -1,5 +1,4 @@
 using PowerModels
-using PowerModelsGMD  
 using MathOptInterface
 
 include("modify_gens.jl")
@@ -8,7 +7,8 @@ include("modify_gens.jl")
 # Finds the lower bound of reactive power (Qg) for specified generators
 # before the power flow solution fails.  Uses a bisection search.
 
-#note that I have not tested this function extensively yet. the test grid I am using for my project reaches a solution with all Qg values set to zero. 
+# function assumes that the input case solves with the default reactive power levels
+
 
 function find_qg_limit(case::Dict, gen_indices::Vector{Int}, tolerance::Float64)
     # Configure local setting for GIC solver
@@ -17,8 +17,8 @@ function find_qg_limit(case::Dict, gen_indices::Vector{Int}, tolerance::Float64)
     merge!(local_setting, setting)
     solver = JuMP.optimizer_with_attributes(Ipopt.Optimizer, "tol" => 1e-4, "print_level" => 0, "sb" => "yes")
     # Define the power flow function
-    function gmd_power_flow(pm_case::Dict) #determine if the power flow runs. return t/f
-        result = PowerModelsGMD.solve_gmd_decoupled(pm_case, PowerModels.ACPPowerModel, solver, PowerModelsGMD.solve_gmd, PowerModelsGMD.solve_gmd_pf; setting=local_setting)
+    function power_flow_tf(pm_case::Dict) #wrap the power flow
+        result = solve_ac_opf(pm_case, solver)
         if haskey(result, "termination_status") && result["termination_status"] == MathOptInterface.LOCALLY_SOLVED
             return true
         else
@@ -30,6 +30,7 @@ function find_qg_limit(case::Dict, gen_indices::Vector{Int}, tolerance::Float64)
 
     qg_mult_low = 0.0
     qg_mult_high = 1.0
+    iters = 0
 
     # Check if the power flow solves with zero reactive power
     temp_case_zero_qg = deepcopy(case)
@@ -46,13 +47,13 @@ function find_qg_limit(case::Dict, gen_indices::Vector{Int}, tolerance::Float64)
         qg_mult_mid = (qg_mult_low + qg_mult_high) / 2.0
         temp_case = deepcopy(case) # Create copy of the case. potentially unnecessary malloc, not sure how to avoid for now
         modify_gens(temp_case, gen_indices, 1.0, qg_mult_mid)
-
+        iters = iters + 1
         if gmd_power_flow(temp_case)
             # If power flow is successful, update lower bound
-            qg_mult_low = qg_mult_mid
+            qg_mult_high = qg_mult_mid
         else
             # If power flow fails, update upper bound
-            qg_mult_high = qg_mult_mid
+            qg_mult_low = qg_mult_mid
         end
     end
 
@@ -64,6 +65,6 @@ function find_qg_limit(case::Dict, gen_indices::Vector{Int}, tolerance::Float64)
     if isempty(results) && !isempty(gen_indices)
         println("Bracketing failed to find a lower limit for the combined Qg of the specified generators.")
     end
-
+    println("Solution found after $iters bracketing iterations")
     return results
 end
